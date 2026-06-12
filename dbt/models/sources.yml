@@ -1,0 +1,18 @@
+version: 2
+
+sources:
+  - name: peopleops_raw
+    database: "{{ env_var('GCP_PROJECT') }}"
+    schema: peopleops_raw
+    description: Raw HR tables loaded from synthetic CSV data.
+    tables:
+      - name: employees
+        description: One row per employee — static attributes at hire time.
+      - name: role_history
+        description: SCD2 source — one row per role/salary segment per employee.
+      - name: performance_reviews
+        description: Annual performance ratings, one row per review.
+      - name: absence_events
+        description: Individual absence events with type and duration.
+      - name: exits
+        description: One row per employee who left during the observation window.

@@ -1,0 +1,339 @@
+{
+  "name": "PeopleOps",
+  "compatibilityLevel": 1567,
+  "model": {
+    "culture": "en-US",
+    "defaultPowerBIDataSourceVersion": "powerBI_V3",
+    "sourceQueryCulture": "en-US",
+    "expressions": [
+      {
+        "name": "GCP_Project",
+        "description": "GCP project ID. Update this before publishing.",
+        "kind": "m",
+        "expression": "\"YOUR_GCP_PROJECT_ID\" meta [IsParameterQuery=true, Type=\"Text\", IsParameterQueryRequired=true]"
+      },
+      {
+        "name": "BQ_Dataset",
+        "description": "BigQuery dataset (peopleops_prod or peopleops_dev).",
+        "kind": "m",
+        "expression": "\"peopleops_prod\" meta [IsParameterQuery=true, Type=\"Text\", IsParameterQueryRequired=true]"
+      }
+    ],
+    "tables": [
+      {
+        "name": "dim_employee",
+        "description": "SCD Type 2 employee dimension. One row per role/salary segment. Filter is_current = TRUE for current headcount.",
+        "columns": [
+          { "name": "employee_sk",   "dataType": "string",   "isHidden": true,  "description": "Surrogate key (md5 of employee_id + valid_from)." },
+          { "name": "employee_id",   "dataType": "int64",    "isHidden": false, "description": "Natural key — use employee_sk for relationships." },
+          { "name": "full_name",     "dataType": "string",   "isHidden": false, "description": "Employee full name." },
+          { "name": "gender",        "dataType": "string",   "isHidden": false, "description": "Gender (Male / Female / Non-binary)." },
+          { "name": "date_of_birth", "dataType": "dateTime", "isHidden": true,  "description": "Used only to derive age." },
+          { "name": "department",    "dataType": "string",   "isHidden": false, "description": "Organisational department." },
+          { "name": "hire_date",     "dataType": "dateTime", "isHidden": false, "description": "Date the employee joined." },
+          { "name": "contract_type", "dataType": "string",   "isHidden": false, "description": "Permanent / Fixed-term / Part-time." },
+          { "name": "job_role",      "dataType": "string",   "isHidden": false, "description": "Job title for this SCD2 segment." },
+          { "name": "role_level",    "dataType": "int64",    "isHidden": false, "description": "0 = entry, 4 = director." },
+          { "name": "salary",        "dataType": "int64",    "isHidden": true,  "description": "Hidden — use Avg Salary or Median Salary measures." },
+          { "name": "valid_from",    "dataType": "dateTime", "isHidden": false, "description": "Start of this role/salary segment." },
+          { "name": "valid_to",      "dataType": "dateTime", "isHidden": false, "description": "End of segment (9999-12-31 = current)." },
+          { "name": "is_current",    "dataType": "boolean",  "isHidden": false, "description": "TRUE for the employee's live record." }
+        ],
+        "partitions": [
+          {
+            "name": "dim_employee",
+            "mode": "import",
+            "source": {
+              "type": "m",
+              "expression": [
+                "let",
+                "  Source  = GoogleBigQuery.Database([BillingProject = GCP_Project]),",
+                "  ds      = Source{[Name = BQ_Dataset]}[Data],",
+                "  table   = ds{[Name = \"dim_employee\"]}[Data]",
+                "in",
+                "  table"
+              ]
+            }
+          }
+        ]
+      },
+      {
+        "name": "fct_attrition_snapshots",
+        "description": "Leakage-proof attrition feature table. One row per employee per quarter-end snapshot. exited_within_6m is the forward-looking label — not a model input.",
+        "columns": [
+          { "name": "employee_id",           "dataType": "int64",   "isHidden": true,  "description": "FK to dim_employee." },
+          { "name": "snapshot_date",         "dataType": "dateTime","isHidden": false, "description": "Quarter-end date this row was computed as of." },
+          { "name": "gender",                "dataType": "string",  "isHidden": false, "description": "Gender at snapshot time." },
+          { "name": "department",            "dataType": "string",  "isHidden": false, "description": "Department at snapshot time." },
+          { "name": "contract_type",         "dataType": "string",  "isHidden": false, "description": "Contract type at snapshot time." },
+          { "name": "age_at_snapshot",       "dataType": "int64",   "isHidden": true,  "description": "Age in years as of snapshot date." },
+          { "name": "tenure_months",         "dataType": "int64",   "isHidden": true,  "description": "Months from hire to snapshot." },
+          { "name": "role_level",            "dataType": "int64",   "isHidden": false, "description": "0=entry … 4=director at snapshot." },
+          { "name": "salary",                "dataType": "int64",   "isHidden": true,  "description": "Hidden — use measures." },
+          { "name": "role_median_salary",    "dataType": "int64",   "isHidden": true,  "description": "Peer median salary at snapshot." },
+          { "name": "salary_vs_median_pct",  "dataType": "double",  "isHidden": true,  "description": "Hidden — use Salary vs Median measure." },
+          { "name": "months_in_current_role","dataType": "int64",   "isHidden": true,  "description": "Hidden — used in model and playbook." },
+          { "name": "avg_rating_last2",      "dataType": "double",  "isHidden": true,  "description": "Average of last 2 review ratings." },
+          { "name": "absence_days_last90",   "dataType": "int64",   "isHidden": true,  "description": "Absence days in trailing 90 days." },
+          { "name": "absence_events_last90", "dataType": "int64",   "isHidden": true,  "description": "Absence events in trailing 90 days." },
+          { "name": "exited_within_6m",      "dataType": "int64",   "isHidden": false, "description": "1 if employee exited within 6 months of snapshot. Forward-looking label." }
+        ],
+        "partitions": [
+          {
+            "name": "fct_attrition_snapshots",
+            "mode": "import",
+            "source": {
+              "type": "m",
+              "expression": [
+                "let",
+                "  Source  = GoogleBigQuery.Database([BillingProject = GCP_Project]),",
+                "  ds      = Source{[Name = BQ_Dataset]}[Data],",
+                "  table   = ds{[Name = \"fct_attrition_snapshots\"]}[Data]",
+                "in",
+                "  table"
+              ]
+            }
+          }
+        ]
+      },
+      {
+        "name": "fct_absence_monthly",
+        "description": "Monthly absence summary per employee. Grain: employee × month.",
+        "columns": [
+          { "name": "employee_id",        "dataType": "int64",    "isHidden": true,  "description": "FK to dim_employee." },
+          { "name": "month",              "dataType": "dateTime", "isHidden": false, "description": "First day of the month." },
+          { "name": "absence_events",     "dataType": "int64",    "isHidden": true,  "description": "Hidden — use Total Absence Events measure." },
+          { "name": "total_absence_days", "dataType": "int64",    "isHidden": true,  "description": "Hidden — use Total Absence Days measure." },
+          { "name": "sick_days",          "dataType": "int64",    "isHidden": true },
+          { "name": "personal_days",      "dataType": "int64",    "isHidden": true },
+          { "name": "family_days",        "dataType": "int64",    "isHidden": true },
+          { "name": "medical_days",       "dataType": "int64",    "isHidden": true },
+          { "name": "other_days",         "dataType": "int64",    "isHidden": true }
+        ],
+        "partitions": [
+          {
+            "name": "fct_absence_monthly",
+            "mode": "import",
+            "source": {
+              "type": "m",
+              "expression": [
+                "let",
+                "  Source  = GoogleBigQuery.Database([BillingProject = GCP_Project]),",
+                "  ds      = Source{[Name = BQ_Dataset]}[Data],",
+                "  table   = ds{[Name = \"fct_absence_monthly\"]}[Data]",
+                "in",
+                "  table"
+              ]
+            }
+          }
+        ]
+      },
+      {
+        "name": "rpt_pay_equity",
+        "description": "Median salary by gender × department × role level. pay_gap_pct is relative to the all-gender median for the same band.",
+        "columns": [
+          { "name": "department",            "dataType": "string", "isHidden": false, "description": "Organisational department." },
+          { "name": "role_level",            "dataType": "int64",  "isHidden": false, "description": "0=entry … 4=director." },
+          { "name": "job_role",              "dataType": "string", "isHidden": false, "description": "Job title for this band." },
+          { "name": "gender",                "dataType": "string", "isHidden": false, "description": "Gender group." },
+          { "name": "median_salary",         "dataType": "int64",  "isHidden": true,  "description": "Hidden — use Median Salary measure." },
+          { "name": "avg_salary",            "dataType": "int64",  "isHidden": true,  "description": "Hidden — use Avg Salary measure." },
+          { "name": "headcount",             "dataType": "int64",  "isHidden": true,  "description": "Hidden — use Headcount measure." },
+          { "name": "overall_median_salary", "dataType": "int64",  "isHidden": true,  "description": "All-gender median for this band." },
+          { "name": "pay_gap_pct",           "dataType": "double", "isHidden": true,  "description": "Hidden — use Pay Gap % measure." }
+        ],
+        "partitions": [
+          {
+            "name": "rpt_pay_equity",
+            "mode": "import",
+            "source": {
+              "type": "m",
+              "expression": [
+                "let",
+                "  Source  = GoogleBigQuery.Database([BillingProject = GCP_Project]),",
+                "  ds      = Source{[Name = BQ_Dataset]}[Data],",
+                "  table   = ds{[Name = \"rpt_pay_equity\"]}[Data]",
+                "in",
+                "  table"
+              ]
+            }
+          }
+        ]
+      },
+      {
+        "name": "_Measures",
+        "description": "Measure table — contains all DAX measures. No rows; hidden from report view.",
+        "isHidden": false,
+        "columns": [
+          {
+            "name": "_placeholder",
+            "dataType": "int64",
+            "isHidden": true,
+            "description": "Placeholder column so the measure table is valid.",
+            "sourceColumn": null,
+            "calculatedColumnExpression": "0"
+          }
+        ],
+        "partitions": [
+          {
+            "name": "_Measures",
+            "mode": "import",
+            "source": {
+              "type": "m",
+              "expression": "let Source = #table({\"_placeholder\"}, {{0}}) in Source"
+            }
+          }
+        ],
+        "measures": [
+          {
+            "name": "Active Headcount",
+            "description": "Count of employees currently active (is_current = TRUE in dim_employee).",
+            "formatString": "#,0",
+            "expression": [
+              "CALCULATE(",
+              "    DISTINCTCOUNT(dim_employee[employee_id]),",
+              "    dim_employee[is_current] = TRUE()",
+              ")"
+            ]
+          },
+          {
+            "name": "Attrition Rate (Trailing 12M)",
+            "description": "Employees with exited_within_6m label in the most recent two snapshots, divided by active headcount. Proxy for annual attrition rate.",
+            "formatString": "0.0%",
+            "expression": [
+              "VAR LatestSnapshot =",
+              "    CALCULATE(",
+              "        MAX(fct_attrition_snapshots[snapshot_date]),",
+              "        ALL(fct_attrition_snapshots)",
+              "    )",
+              "VAR Exits =",
+              "    CALCULATE(",
+              "        COUNTROWS(fct_attrition_snapshots),",
+              "        fct_attrition_snapshots[exited_within_6m] = 1,",
+              "        fct_attrition_snapshots[snapshot_date] >= DATE(YEAR(LatestSnapshot) - 1, MONTH(LatestSnapshot), DAY(LatestSnapshot))",
+              "    )",
+              "VAR Active = [Active Headcount]",
+              "RETURN",
+              "    DIVIDE(Exits, Active)"
+            ]
+          },
+          {
+            "name": "Predicted Leavers Next Quarter",
+            "description": "Employees flagged as exited_within_6m = 1 in the most recent snapshot — a forward-looking risk count.",
+            "formatString": "#,0",
+            "expression": [
+              "VAR LatestSnapshot =",
+              "    CALCULATE(",
+              "        MAX(fct_attrition_snapshots[snapshot_date]),",
+              "        ALL(fct_attrition_snapshots)",
+              "    )",
+              "RETURN",
+              "    CALCULATE(",
+              "        DISTINCTCOUNT(fct_attrition_snapshots[employee_id]),",
+              "        fct_attrition_snapshots[exited_within_6m] = 1,",
+              "        fct_attrition_snapshots[snapshot_date] = LatestSnapshot",
+              "    )"
+            ]
+          },
+          {
+            "name": "Avg Rating",
+            "description": "Average performance rating across the most recent snapshot per employee.",
+            "formatString": "0.00",
+            "expression": [
+              "VAR LatestSnapshot =",
+              "    CALCULATE(",
+              "        MAX(fct_attrition_snapshots[snapshot_date]),",
+              "        ALL(fct_attrition_snapshots)",
+              "    )",
+              "RETURN",
+              "    CALCULATE(",
+              "        AVERAGE(fct_attrition_snapshots[avg_rating_last2]),",
+              "        fct_attrition_snapshots[snapshot_date] = LatestSnapshot",
+              "    )"
+            ]
+          },
+          {
+            "name": "Avg Tenure (Months)",
+            "description": "Average tenure in months across currently active employees at the latest snapshot.",
+            "formatString": "#,0",
+            "expression": [
+              "VAR LatestSnapshot =",
+              "    CALCULATE(",
+              "        MAX(fct_attrition_snapshots[snapshot_date]),",
+              "        ALL(fct_attrition_snapshots)",
+              "    )",
+              "RETURN",
+              "    CALCULATE(",
+              "        AVERAGE(fct_attrition_snapshots[tenure_months]),",
+              "        fct_attrition_snapshots[snapshot_date] = LatestSnapshot",
+              "    )"
+            ]
+          },
+          {
+            "name": "Total Absence Days",
+            "description": "Total absence days in the current filter context.",
+            "formatString": "#,0",
+            "expression": "SUM(fct_absence_monthly[total_absence_days])"
+          },
+          {
+            "name": "Avg Monthly Absence Days",
+            "description": "Average absence days per employee per month.",
+            "formatString": "0.0",
+            "expression": [
+              "DIVIDE(",
+              "    SUM(fct_absence_monthly[total_absence_days]),",
+              "    COUNTROWS(fct_absence_monthly)",
+              ")"
+            ]
+          },
+          {
+            "name": "Median Salary",
+            "description": "Median salary for the selected gender, department, and role level band.",
+            "formatString": "£#,0",
+            "expression": "MEDIAN(rpt_pay_equity[median_salary])"
+          },
+          {
+            "name": "Pay Gap %",
+            "description": "Median salary for the selected gender vs the all-gender median for the same department × role level. Positive = above median.",
+            "formatString": "+0.0%;-0.0%;0.0%",
+            "expression": "AVERAGE(rpt_pay_equity[pay_gap_pct])"
+          },
+          {
+            "name": "Headcount by Band",
+            "description": "Employee count for the selected department × role level band.",
+            "formatString": "#,0",
+            "expression": "SUM(rpt_pay_equity[headcount])"
+          }
+        ]
+      }
+    ],
+    "relationships": [
+      {
+        "name": "fct_attrition_snapshots_employee_id → dim_employee_employee_id",
+        "fromTable": "fct_attrition_snapshots",
+        "fromColumn": "employee_id",
+        "toTable": "dim_employee",
+        "toColumn": "employee_id",
+        "crossFilteringBehavior": "oneDirection"
+      },
+      {
+        "name": "fct_absence_monthly_employee_id → dim_employee_employee_id",
+        "fromTable": "fct_absence_monthly",
+        "fromColumn": "employee_id",
+        "toTable": "dim_employee",
+        "toColumn": "employee_id",
+        "crossFilteringBehavior": "oneDirection"
+      }
+    ],
+    "annotations": [
+      {
+        "name": "PBIDesktopVersion",
+        "value": "2.130.0.0"
+      },
+      {
+        "name": "__PBI_TimeIntelligenceEnabled",
+        "value": "0"
+      }
+    ]
+  }
+}

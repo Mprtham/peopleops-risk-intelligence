@@ -1,0 +1,109 @@
+version: 2
+
+models:
+  - name: stg_employees
+    description: One row per employee — static attributes at hire time.
+    columns:
+      - name: employee_id
+        description: Surrogate key for the employee.
+        tests: [unique, not_null]
+      - name: gender
+        tests:
+          - not_null
+          - accepted_values:
+              values: ['Male', 'Female', 'Non-binary']
+      - name: department
+        tests:
+          - not_null
+          - accepted_values:
+              values: ['Sales', 'Engineering', 'HR', 'Marketing', 'Finance', 'Operations']
+      - name: contract_type
+        tests:
+          - not_null
+          - accepted_values:
+              values: ['Permanent', 'Fixed-term', 'Part-time']
+      - name: hire_date
+        tests: [not_null]
+      - name: date_of_birth
+        tests: [not_null]
+
+  - name: stg_role_history
+    description: One row per role/salary segment. Segments are contiguous and non-overlapping per employee.
+    columns:
+      - name: employee_id
+        tests:
+          - not_null
+          - relationships:
+              to: ref('stg_employees')
+              field: employee_id
+      - name: salary
+        tests: [not_null]
+      - name: role_level
+        tests:
+          - not_null
+          - accepted_values:
+              values: [0, 1, 2, 3, 4]
+              quote: false
+      - name: effective_from
+        tests: [not_null]
+
+  - name: stg_performance_reviews
+    description: Annual performance ratings.
+    columns:
+      - name: review_id
+        tests: [unique, not_null]
+      - name: employee_id
+        tests:
+          - not_null
+          - relationships:
+              to: ref('stg_employees')
+              field: employee_id
+      - name: rating
+        tests:
+          - not_null
+          - accepted_values:
+              values: [1, 2, 3, 4, 5]
+              quote: false
+      - name: review_date
+        tests: [not_null]
+
+  - name: stg_absence_events
+    description: Individual absence events.
+    columns:
+      - name: absence_id
+        tests: [unique, not_null]
+      - name: employee_id
+        tests:
+          - not_null
+          - relationships:
+              to: ref('stg_employees')
+              field: employee_id
+      - name: absence_type
+        tests:
+          - not_null
+          - accepted_values:
+              values: ['Sick', 'Personal', 'Family', 'Medical', 'Other']
+      - name: absence_date
+        tests: [not_null]
+      - name: days
+        tests: [not_null]
+
+  - name: stg_exits
+    description: One row per employee who exited during the observation window.
+    columns:
+      - name: exit_id
+        tests: [unique, not_null]
+      - name: employee_id
+        tests:
+          - unique
+          - not_null
+          - relationships:
+              to: ref('stg_employees')
+              field: employee_id
+      - name: exit_reason
+        tests:
+          - not_null
+          - accepted_values:
+              values: ['Resignation', 'Redundancy', 'Performance', 'Retirement']
+      - name: exit_date
+        tests: [not_null]

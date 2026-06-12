@@ -1,0 +1,17 @@
+{
+  "version": "1.0",
+  "artifacts": [
+    {
+      "report": {
+        "path": "PeopleOps.Report"
+      }
+    }
+  ],
+  "settings": {
+    "defaultDataset": {
+      "byPath": {
+        "path": "PeopleOps.SemanticModel"
+      }
+    }
+  }
+}

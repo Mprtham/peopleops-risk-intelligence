@@ -1,0 +1,21 @@
+# Copy this file to profiles.yml and fill in your project ID.
+# profiles.yml is gitignored — never commit it.
+peopleops:
+  target: dev
+  outputs:
+    dev:
+      type: bigquery
+      method: oauth          # uses gcloud auth application-default login
+      project: YOUR_GCP_PROJECT_ID
+      dataset: peopleops_dev
+      threads: 4
+      timeout_seconds: 300
+      location: US
+    prod:
+      type: bigquery
+      method: oauth
+      project: YOUR_GCP_PROJECT_ID
+      dataset: peopleops_prod
+      threads: 4
+      timeout_seconds: 300
+      location: US

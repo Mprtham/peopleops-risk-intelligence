@@ -1,0 +1,122 @@
+[
+  {
+    "ID": "MEASURE_DESCRIPTION_MISSING",
+    "Name": "Measures must have a description",
+    "Category": "Documentation",
+    "Description": "All measures must have a non-empty Description property. Undocumented measures confuse report authors and block self-service BI.",
+    "Severity": 2,
+    "Scope": "Measure",
+    "Expression": "string.IsNullOrWhiteSpace(Description)",
+    "FixExpression": null
+  },
+  {
+    "ID": "TABLE_DESCRIPTION_MISSING",
+    "Name": "Tables must have a description",
+    "Category": "Documentation",
+    "Description": "All tables must have a Description property set.",
+    "Severity": 2,
+    "Scope": "Table",
+    "Expression": "string.IsNullOrWhiteSpace(Description) && !IsHidden",
+    "FixExpression": null
+  },
+  {
+    "ID": "COLUMN_DESCRIPTION_MISSING",
+    "Name": "Visible columns should have a description",
+    "Category": "Documentation",
+    "Description": "Non-hidden columns used in the report should have descriptions to support self-service BI.",
+    "Severity": 1,
+    "Scope": "Column",
+    "Expression": "string.IsNullOrWhiteSpace(Description) && !IsHidden",
+    "FixExpression": null
+  },
+  {
+    "ID": "NO_IMPLICIT_MEASURES",
+    "Name": "Numeric columns should be hidden and replaced by explicit measures",
+    "Category": "DAX Correctness",
+    "Description": "Implicit measures let users aggregate numeric columns incorrectly (e.g. summing salary across unrelated contexts). Hide numeric columns and create explicit DAX measures instead.",
+    "Severity": 2,
+    "Scope": "Column",
+    "Expression": "!IsHidden && DataType == DataType.Int64 && Table.Name.StartsWith(\"fct_\")",
+    "FixExpression": null
+  },
+  {
+    "ID": "MEASURE_FORMAT_PERCENTAGE",
+    "Name": "Percentage measures must use percent format string",
+    "Category": "Formatting",
+    "Description": "Measures whose names contain 'Rate', 'Pct', or 'Gap' must use a percentage format string (e.g. '0.0%').",
+    "Severity": 2,
+    "Scope": "Measure",
+    "Expression": "(Name.Contains(\"Rate\") || Name.Contains(\"Pct\") || Name.Contains(\"Gap\")) && !FormatString.Contains(\"%\")",
+    "FixExpression": null
+  },
+  {
+    "ID": "MEASURE_FORMAT_INTEGER",
+    "Name": "Count measures must use integer format string",
+    "Category": "Formatting",
+    "Description": "Measures whose names start with 'Count' or 'Headcount' should use '#,0' format.",
+    "Severity": 1,
+    "Scope": "Measure",
+    "Expression": "(Name.StartsWith(\"Count\") || Name.StartsWith(\"Headcount\")) && string.IsNullOrWhiteSpace(FormatString)",
+    "FixExpression": null
+  },
+  {
+    "ID": "AVOID_USING_NOW_TODAY",
+    "Name": "Avoid NOW() and TODAY() in calculated columns",
+    "Category": "DAX Correctness",
+    "Description": "NOW() and TODAY() in calculated columns recalculate on every refresh, which can corrupt historical snapshots. Use static date parameters or snapshot_date from the fact table.",
+    "Severity": 3,
+    "Scope": "CalculatedColumn",
+    "Expression": "Expression.Contains(\"NOW()\") || Expression.Contains(\"TODAY()\")",
+    "FixExpression": null
+  },
+  {
+    "ID": "RELATIONSHIP_BOTH_DIRECTION",
+    "Name": "Avoid bi-directional relationships without justification",
+    "Category": "Performance",
+    "Description": "Bi-directional relationships degrade query performance and can cause ambiguous filter contexts. Use them only when a many-to-many requires it, and document the reason.",
+    "Severity": 2,
+    "Scope": "Relationship",
+    "Expression": "CrossFilteringBehavior == CrossFilteringBehavior.BothDirections",
+    "FixExpression": null
+  },
+  {
+    "ID": "AVOID_CALCULATED_COLUMNS_IN_FACT",
+    "Name": "Avoid calculated columns in fact tables",
+    "Category": "Performance",
+    "Description": "Calculated columns in large fact tables materialise on every refresh and bloat the model. Move the logic into dbt instead.",
+    "Severity": 2,
+    "Scope": "CalculatedColumn",
+    "Expression": "Table.Name.StartsWith(\"fct_\")",
+    "FixExpression": null
+  },
+  {
+    "ID": "HIDE_FOREIGN_KEYS",
+    "Name": "Foreign key columns should be hidden",
+    "Category": "UX",
+    "Description": "Columns used only as relationship join keys (e.g. employee_id in fact tables) should be hidden so report authors do not accidentally drag them onto visuals.",
+    "Severity": 1,
+    "Scope": "Column",
+    "Expression": "Name.EndsWith(\"_id\") && !IsHidden && Table.Name.StartsWith(\"fct_\")",
+    "FixExpression": null
+  },
+  {
+    "ID": "AVOID_IFERROR",
+    "Name": "Avoid IFERROR wrapping entire measures",
+    "Category": "DAX Correctness",
+    "Description": "IFERROR() at the top level of a measure silently hides calculation errors. Use DIVIDE() for safe division and fix root causes rather than masking errors.",
+    "Severity": 2,
+    "Scope": "Measure",
+    "Expression": "Expression.TrimStart().StartsWith(\"IFERROR\")",
+    "FixExpression": null
+  },
+  {
+    "ID": "PARTITION_NAME_MATCHES_TABLE",
+    "Name": "Partition name should match table name",
+    "Category": "Maintenance",
+    "Description": "The default partition should share the table name for clarity when inspecting the model in Tabular Editor.",
+    "Severity": 1,
+    "Scope": "Partition",
+    "Expression": "Name != Table.Name",
+    "FixExpression": null
+  }
+]

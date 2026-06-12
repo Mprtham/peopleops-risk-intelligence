@@ -1,0 +1,85 @@
+version: 2
+
+models:
+  - name: dim_employee
+    description: >
+      SCD Type 2 employee dimension. One row per role/salary segment.
+      Join on employee_sk for point-in-time lookups, or filter is_current = true
+      for the current state of each employee.
+    columns:
+      - name: employee_sk
+        description: Surrogate key (md5 of employee_id + valid_from).
+        tests: [unique, not_null]
+      - name: employee_id
+        tests:
+          - not_null
+          - relationships:
+              to: ref('stg_employees')
+              field: employee_id
+      - name: valid_from
+        tests: [not_null]
+      - name: valid_to
+        tests: [not_null]
+      - name: is_current
+        tests: [not_null]
+      - name: salary
+        tests: [not_null]
+      - name: role_level
+        tests:
+          - not_null
+          - accepted_values:
+              values: [0, 1, 2, 3, 4]
+              quote: false
+
+  - name: fct_attrition_snapshots
+    description: >
+      Leakage-proof attrition feature table. One row per employee per
+      quarter-end snapshot date. Features are computed strictly as of the
+      snapshot date. exited_within_6m is the forward-looking label.
+    columns:
+      - name: employee_id
+        tests: [not_null]
+      - name: snapshot_date
+        tests: [not_null]
+      - name: exited_within_6m
+        tests:
+          - not_null
+          - accepted_values:
+              values: [0, 1]
+              quote: false
+      - name: tenure_months
+        tests: [not_null]
+      - name: salary
+        tests: [not_null]
+      - name: role_level
+        tests:
+          - not_null
+          - accepted_values:
+              values: [0, 1, 2, 3, 4]
+              quote: false
+
+  - name: fct_absence_monthly
+    description: Monthly absence summary per employee.
+    columns:
+      - name: employee_id
+        tests: [not_null]
+      - name: month
+        tests: [not_null]
+      - name: total_absence_days
+        tests: [not_null]
+
+  - name: rpt_pay_equity
+    description: >
+      Median salary by gender × department × role level.
+      pay_gap_pct is relative to the all-gender median for that band.
+    columns:
+      - name: department
+        tests: [not_null]
+      - name: role_level
+        tests: [not_null]
+      - name: gender
+        tests: [not_null]
+      - name: median_salary
+        tests: [not_null]
+      - name: overall_median_salary
+        tests: [not_null]

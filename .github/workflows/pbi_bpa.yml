@@ -1,0 +1,43 @@
+name: Power BI Best Practice Analyzer
+
+on:
+  pull_request:
+    paths:
+      - 'powerbi/**'
+
+jobs:
+  bpa:
+    runs-on: windows-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download Tabular Editor 2 (free CLI)
+        shell: pwsh
+        run: |
+          $url = "https://github.com/TabularEditor/TabularEditor/releases/download/2.20.4/TabularEditor.Portable.zip"
+          Invoke-WebRequest -Uri $url -OutFile TabularEditor.zip
+          Expand-Archive -Path TabularEditor.zip -DestinationPath TabularEditor -Force
+          Write-Output "${{ github.workspace }}\TabularEditor" >> $env:GITHUB_PATH
+
+      - name: Run Best Practice Analyzer
+        shell: pwsh
+        run: |
+          $modelPath = "powerbi\PeopleOps.SemanticModel\model.bim"
+          $rulesPath = "powerbi\bpa_rules.json"
+
+          # Run BPA — exit code 1 if any rule at severity >= 2 is violated
+          .\TabularEditor\TabularEditor.exe "$modelPath" -B "$rulesPath" -V
+
+          if ($LASTEXITCODE -ne 0) {
+            Write-Error "BPA found violations. Fix them before this PR can merge."
+            exit 1
+          }
+
+      - name: Upload BPA report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: bpa-report
+          path: bpa_output.txt
+          if-no-files-found: ignore

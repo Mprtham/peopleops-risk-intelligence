@@ -1,0 +1,31 @@
+# --- Raw data (regenerate with: make data) ---
+data/raw/
+
+# --- Secrets / credentials ---
+*.json
+!powerbi/bpa_rules.json
+.env
+dbt/profiles.yml
+
+# --- ML binary artifacts (regenerate with: make train) ---
+ml/artifacts/
+
+# --- dbt build output ---
+dbt/target/
+dbt/logs/
+dbt/.user.yml
+
+# --- Claude Code local settings ---
+.claude/
+
+# --- Python ---
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+*.egg-info/
+
+# --- OS ---
+.DS_Store
+Thumbs.db

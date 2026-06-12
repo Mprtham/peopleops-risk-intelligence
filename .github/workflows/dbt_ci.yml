@@ -1,0 +1,53 @@
+name: dbt CI
+
+on:
+  pull_request:
+    paths:
+      - 'dbt/**'
+
+jobs:
+  dbt-build:
+    runs-on: ubuntu-latest
+    env:
+      GCP_PROJECT: ${{ secrets.GCP_PROJECT }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: pip install dbt-bigquery==1.8.2
+
+      - name: Authenticate to GCP
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
+
+      - name: Write dbt profiles
+        run: |
+          mkdir -p ~/.dbt
+          cat > ~/.dbt/profiles.yml << EOF
+          peopleops:
+            target: dev
+            outputs:
+              dev:
+                type: bigquery
+                method: oauth
+                project: ${{ secrets.GCP_PROJECT }}
+                dataset: peopleops_ci_${{ github.run_id }}
+                threads: 4
+                timeout_seconds: 300
+                location: US
+          EOF
+
+      - name: dbt build (run + test)
+        working-directory: dbt
+        run: dbt build --target dev
+
+      - name: Cleanup CI dataset
+        if: always()
+        run: |
+          bq rm -r -f ${{ secrets.GCP_PROJECT }}:peopleops_ci_${{ github.run_id }} || true
