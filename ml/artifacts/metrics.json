@@ -1,0 +1,19 @@
+{
+  "roc_auc_train": 0.6525,
+  "roc_auc_test": 0.6654,
+  "pr_auc_train": 0.2206,
+  "pr_auc_test": 0.4616,
+  "precision_at_top10_test": 0.5509,
+  "train_rows": 10944,
+  "test_rows": 1675,
+  "train_positive_rate": 0.136,
+  "test_positive_rate": 0.2896,
+  "top5_features": [
+    "avg_rating_all",
+    "tenure_months",
+    "absence_events_per_month",
+    "absence_events_last90",
+    "contract_type_Fixed-term"
+  ],
+  "train_cutoff": "2024-12-31"
+}

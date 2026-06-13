@@ -4,11 +4,12 @@ data/raw/
 # --- Secrets / credentials ---
 *.json
 !powerbi/bpa_rules.json
+!ml/artifacts/metrics.json
 .env
 dbt/profiles.yml
 
 # --- ML binary artifacts (regenerate with: make train) ---
-ml/artifacts/
+# ml/artifacts/ — committed so Streamlit Cloud can load the model
 
 # --- dbt build output ---
 dbt/target/
