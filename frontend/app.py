@@ -5,6 +5,7 @@ Polished commercial SaaS design. All model logic, queries, and calculations unch
 
 import json
 import os
+import tempfile
 import warnings
 from pathlib import Path
 
@@ -17,6 +18,26 @@ import streamlit as st
 from google.cloud import bigquery
 
 warnings.filterwarnings("ignore")
+
+
+def _init_gcp_auth() -> None:
+    """
+    On Streamlit Cloud, load the service account from st.secrets and write it
+    to a temp file so google-cloud-bigquery picks it up automatically.
+    On local dev, gcloud ADC handles auth — this is a no-op.
+    """
+    if "gcp_service_account" not in st.secrets:
+        return
+    key = dict(st.secrets["gcp_service_account"])
+    tmp = tempfile.NamedTemporaryFile(
+        mode="w", suffix=".json", delete=False, encoding="utf-8"
+    )
+    json.dump(key, tmp)
+    tmp.flush()
+    os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = tmp.name
+
+
+_init_gcp_auth()
 
 # ---------------------------------------------------------------------------
 # Page config (must be first Streamlit call)
