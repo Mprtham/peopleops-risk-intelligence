@@ -13,7 +13,6 @@ import joblib
 import numpy as np
 import pandas as pd
 import plotly.graph_objects as go
-import shap
 import streamlit as st
 from google.cloud import bigquery
 
@@ -485,10 +484,9 @@ st.markdown(DESIGN_CSS, unsafe_allow_html=True)
 @st.cache_resource(show_spinner="Loading ML artifacts...")
 def load_artifacts():
     pipeline     = joblib.load(ARTIFACTS_DIR / "pipeline.joblib")
-    explainer    = joblib.load(ARTIFACTS_DIR / "shap_explainer.joblib")
     feature_meta = joblib.load(ARTIFACTS_DIR / "feature_meta.joblib")
     metrics      = json.loads((ARTIFACTS_DIR / "metrics.json").read_text())
-    return pipeline, explainer, feature_meta, metrics
+    return pipeline, feature_meta, metrics
 
 
 @st.cache_resource(show_spinner="Connecting to BigQuery...")
@@ -507,6 +505,7 @@ def load_all_snapshots(project: str, dataset: str) -> pd.DataFrame:
             absence_events_last90, absence_events_per_month,
             exited_within_6m
         from `{project}.{dataset}.fct_attrition_snapshots`
+        where snapshot_date >= date_sub(current_date(), interval 2 year)
         order by snapshot_date desc, employee_id
     """).to_dataframe()
 
@@ -535,7 +534,7 @@ def playbook_action(score: float, row: pd.Series) -> str:
     return "Monitor - schedule check-in at next 1:1"
 
 
-def score_dataframe(df: pd.DataFrame, pipeline, explainer, feature_meta) -> pd.DataFrame:
+def score_dataframe(df: pd.DataFrame, pipeline, feature_meta) -> pd.DataFrame:
     X = df[ALL_FEATURES]
     df = df.copy()
     df["risk_score"] = pipeline.predict_proba(X)[:, 1]
@@ -543,14 +542,13 @@ def score_dataframe(df: pd.DataFrame, pipeline, explainer, feature_meta) -> pd.D
     return df
 
 
-def shap_for_row(row: pd.Series, pipeline, explainer, feature_meta) -> tuple:
+def feature_contributions_for_row(row: pd.Series, pipeline, feature_meta) -> tuple:
     X   = pd.DataFrame([row[ALL_FEATURES]])
     X_t = pipeline.named_steps["preprocessor"].transform(X)
-    sv  = explainer(X_t)
-    names  = feature_meta["feature_names"]
-    values = sv.values[0]
-    base   = float(sv.base_values[0]) if hasattr(sv.base_values, "__len__") else float(sv.base_values)
-    return names, values, base
+    lr  = pipeline.named_steps["classifier"]
+    contributions = lr.coef_[0] * X_t[0]
+    base = float(1 / (1 + np.exp(-float(lr.intercept_[0]))))
+    return feature_meta["feature_names"], contributions, base
 
 
 def parse_playbook(text: str) -> tuple[str, str]:
@@ -872,9 +870,9 @@ def main():
             st.stop()
 
     # ----- Load data -----
-    pipeline, explainer, feature_meta, metrics = load_artifacts()
+    pipeline, feature_meta, metrics = load_artifacts()
     all_df    = load_all_snapshots(project, BQ_DATASET)
-    scored_df = score_dataframe(all_df, pipeline, explainer, feature_meta)
+    scored_df = score_dataframe(all_df, pipeline, feature_meta)
 
     latest_date = scored_df["snapshot_date"].max()
     latest_df   = scored_df[scored_df["snapshot_date"] == latest_date]
@@ -1003,7 +1001,7 @@ def main():
         with st.spinner("Scoring employee..."):
             action_full     = playbook_action(score, row)
             action, owner   = parse_playbook(action_full)
-            names, shap_vals, base = shap_for_row(row, pipeline, explainer, feature_meta)
+            names, shap_vals, base = feature_contributions_for_row(row, pipeline, feature_meta)
 
         st.toast(f"Profile loaded for employee {int(emp_id)}")
 

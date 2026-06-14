@@ -21,7 +21,6 @@ from pathlib import Path
 import joblib
 import numpy as np
 import pandas as pd
-import shap
 from google.cloud import bigquery
 from sklearn.compose import ColumnTransformer
 from sklearn.linear_model import LogisticRegression
@@ -159,22 +158,17 @@ def train(df: pd.DataFrame) -> None:
     y_pred_test = (y_prob_test >= 0.5).astype(int)
     print(classification_report(y_test, y_pred_test, target_names=["stayed", "exited"]))
 
-    # SHAP — explain the logistic regression
-    X_train_transformed = pipeline.named_steps["preprocessor"].transform(X_train)
-    X_test_transformed  = pipeline.named_steps["preprocessor"].transform(X_test)
-
     # Feature names after one-hot encoding
     cat_encoder = pipeline.named_steps["preprocessor"].named_transformers_["cat"]
     cat_feature_names = list(cat_encoder.get_feature_names_out(CATEGORICAL_FEATURES))
     all_feature_names = NUMERIC_FEATURES + cat_feature_names
 
     lr = pipeline.named_steps["classifier"]
-    explainer = shap.LinearExplainer(lr, X_train_transformed, feature_names=all_feature_names)
-    shap_values = explainer(X_test_transformed)
 
-    # Mean absolute SHAP — global feature importance
-    mean_abs_shap = np.abs(shap_values.values).mean(axis=0)
-    importance = pd.Series(mean_abs_shap, index=all_feature_names).sort_values(ascending=False)
+    # Feature importance via LR coefficients (equivalent to SHAP for linear models)
+    X_test_transformed = pipeline.named_steps["preprocessor"].transform(X_test)
+    mean_abs_contrib = np.abs(lr.coef_[0] * X_test_transformed).mean(axis=0)
+    importance = pd.Series(mean_abs_contrib, index=all_feature_names).sort_values(ascending=False)
 
     print("\n--- Top 10 features by mean |SHAP| ---")
     for feat, imp in importance.head(10).items():
@@ -211,8 +205,7 @@ def train(df: pd.DataFrame) -> None:
         "train_cutoff": TRAIN_CUTOFF,
     }
 
-    joblib.dump(pipeline,  ARTIFACTS_DIR / "pipeline.joblib")
-    joblib.dump(explainer, ARTIFACTS_DIR / "shap_explainer.joblib")
+    joblib.dump(pipeline, ARTIFACTS_DIR / "pipeline.joblib")
     joblib.dump({"feature_names": all_feature_names, "numeric": NUMERIC_FEATURES, "categorical": CATEGORICAL_FEATURES},
                 ARTIFACTS_DIR / "feature_meta.joblib")
 
@@ -220,7 +213,7 @@ def train(df: pd.DataFrame) -> None:
         json.dump(metrics, f, indent=2)
 
     print(f"\nArtifacts saved to {ARTIFACTS_DIR.resolve()}")
-    print(f"  pipeline.joblib  |  shap_explainer.joblib  |  feature_meta.joblib  |  metrics.json")
+    print(f"  pipeline.joblib  |  feature_meta.joblib  |  metrics.json")
 
 
 def main() -> None:
