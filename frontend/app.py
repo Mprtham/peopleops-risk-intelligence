@@ -994,7 +994,7 @@ def main():
                 help="Enter any employee ID, or select one from the At-Risk Leaderboard tab",
             )
         with col_btn:
-            analyse = st.button("Analyse", type="primary", use_container_width=True)
+            analyse = st.button("Analyse", type="primary", width="stretch")
 
         emp_rows = scored_df[scored_df["employee_id"] == emp_id]
         if emp_rows.empty:
@@ -1026,7 +1026,7 @@ def main():
         with c_gauge:
             st.plotly_chart(
                 gauge_chart(score),
-                use_container_width=False,
+                width="content",
                 config={"displayModeBar": False},
             )
 
@@ -1053,7 +1053,7 @@ def main():
         st.markdown('<p class="section-label">Risk Drivers</p>', unsafe_allow_html=True)
         st.plotly_chart(
             shap_waterfall(names, shap_vals, base),
-            use_container_width=True,
+            width="stretch",
             config={"displayModeBar": False},
         )
 
@@ -1067,7 +1067,7 @@ def main():
             hist = emp_rows.sort_values("snapshot_date")
             st.plotly_chart(
                 history_chart(hist),
-                use_container_width=True,
+                width="stretch",
                 config={"displayModeBar": False},
             )
 
@@ -1133,14 +1133,14 @@ def main():
         with c_bar:
             st.plotly_chart(
                 dept_bar_chart(dept_view),
-                use_container_width=True,
+                width="stretch",
                 config={"displayModeBar": False},
             )
 
         with c_stack:
             st.plotly_chart(
                 dept_stack_chart(dept_view),
-                use_container_width=True,
+                width="stretch",
                 config={"displayModeBar": False},
             )
 
@@ -1160,7 +1160,7 @@ def main():
         dept_stats.columns = ["Department", "Avg Risk", "Median Risk", "Headcount", "High-Risk Count"]
         dept_stats["Avg Risk"]    = dept_stats["Avg Risk"].map("{:.1%}".format)
         dept_stats["Median Risk"] = dept_stats["Median Risk"].map("{:.1%}".format)
-        st.dataframe(dept_stats, use_container_width=True, hide_index=True)
+        st.dataframe(dept_stats, width="stretch", hide_index=True)
 
     # ----- Fixed footer -----
     st.markdown(
