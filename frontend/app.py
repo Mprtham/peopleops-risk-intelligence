@@ -487,7 +487,9 @@ def load_artifacts():
     # pickled with 1.5.x can be loaded by newer versions without retraining.
     import sklearn.compose._column_transformer as _sct
     if not hasattr(_sct, "_RemainderColsList"):
-        _sct._RemainderColsList = list
+        class _RemainderColsList(list):
+            pass
+        _sct._RemainderColsList = _RemainderColsList
 
     pipeline     = joblib.load(ARTIFACTS_DIR / "pipeline.joblib")
     feature_meta = joblib.load(ARTIFACTS_DIR / "feature_meta.joblib")
