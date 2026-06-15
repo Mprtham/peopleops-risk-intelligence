@@ -651,7 +651,6 @@ PLOTLY_BASE = dict(
     font=dict(family=FONT, color=C["text"]),
     paper_bgcolor=C["bg"],
     plot_bgcolor=C["bg"],
-    margin=dict(l=10, r=10, t=30, b=10),
 )
 
 
