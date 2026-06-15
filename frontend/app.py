@@ -483,6 +483,12 @@ st.markdown(DESIGN_CSS, unsafe_allow_html=True)
 
 @st.cache_resource(show_spinner="Loading ML artifacts...")
 def load_artifacts():
+    # sklearn 1.6+ removed _RemainderColsList; inject a stand-in so artifacts
+    # pickled with 1.5.x can be loaded by newer versions without retraining.
+    import sklearn.compose._column_transformer as _sct
+    if not hasattr(_sct, "_RemainderColsList"):
+        _sct._RemainderColsList = list
+
     pipeline     = joblib.load(ARTIFACTS_DIR / "pipeline.joblib")
     feature_meta = joblib.load(ARTIFACTS_DIR / "feature_meta.joblib")
     metrics      = json.loads((ARTIFACTS_DIR / "metrics.json").read_text())
